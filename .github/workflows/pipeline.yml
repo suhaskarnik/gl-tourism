@@ -7,18 +7,11 @@ jobs:
   register-dataset:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - name: "Set up Python"
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
+      - uses: ./.github/actions/common-setup
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with: 
-          version: "0.9.9"
       - name: Install dependencies
-        run: uv venv && uv pip install -r tourism_project/requirements.txt
+        run: uv pip install -r tourism_project/requirements.txt
+
       - name: Upload Dataset to HuggingFace Hub
         env: 
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

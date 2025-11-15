@@ -4,8 +4,6 @@ description: Checkout, setup python, install uv
 runs:
   using: "composite"    
   steps:
-    - uses: actions/checkout@v5
-
     - name: "Set up Python"
       uses: actions/setup-python@v6
       with:

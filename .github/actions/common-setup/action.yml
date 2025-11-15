@@ -17,3 +17,7 @@ runs:
     - name: Setup uv venv
       run: uv venv
       shell: bash
+
+    - name: Install dependencies
+      run: uv pip install -r tourism_project/requirements.txt
+

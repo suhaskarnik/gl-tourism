@@ -19,6 +19,3 @@ except RepositoryNotFoundError:
     print(f"Space '{data_repo}' created.")
 
 api.upload_folder(folder_path=data_dir, repo_id=data_repo, repo_type="dataset")
-
-
-# api.create_repo(data_repo, token=hf_token, repo_type="dataset", exist_ok=True)

@@ -10,10 +10,18 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/common-setup
 
-      - name: Install dependencies
-        run: uv pip install -r tourism_project/requirements.txt
-
       - name: Upload Dataset to HuggingFace Hub
         env: 
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: uv run tourism_project/model_building/data_register.py
+
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/common-setup
+      - name: Run Data Preparation
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: uv run tourism_project/model_building/prep.py

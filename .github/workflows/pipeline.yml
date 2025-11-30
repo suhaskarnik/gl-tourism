@@ -45,4 +45,4 @@ jobs:
       - name: Push the app the HuggingFace and Run it
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: uv run tourism_project/model_building/hosting.py
+        run: uv run tourism_project/hosting/hosting.py

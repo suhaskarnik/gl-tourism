@@ -1,18 +1,9 @@
-
-# for data manipulation
-import pandas as pd
-import sklearn
-# for creating a folder
 import os
-import tempfile 
+import tempfile
 
-# for data preprocessing and pipeline creation
+import pandas as pd
+from huggingface_hub import HfApi
 from sklearn.model_selection import train_test_split
-# for converting text data in to numerical representation
-from sklearn.preprocessing import LabelEncoder
-# for hugging face space authentication to upload files
-from huggingface_hub import login, HfApi, create_repo
-from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError
 
 api = HfApi(token=os.getenv("HF_TOKEN"))
 
@@ -21,8 +12,8 @@ DATASET_PATH = f"hf://datasets/{data_repo}/tourism.csv"
 
 df = pd.read_csv(DATASET_PATH, index_col=0)
 
-# Cleaning the gender column 
-df.loc[df['Gender'] == 'Fe Male', 'Gender'] = 'Female'
+# Cleaning the gender column
+df.loc[df["Gender"] == "Fe Male", "Gender"] = "Female"
 
 
 print("Dataset loaded successfully.")
@@ -53,16 +44,18 @@ labels = ["train", "test"]
 datasets = [X_train, X_test, y_train, y_test]
 files = []
 for dataset in datasets:
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.csv') as temp_csv_file:
+    with tempfile.NamedTemporaryFile(
+        mode="w+", delete=False, suffix=".csv"
+    ) as temp_csv_file:
         temp_file_path = temp_csv_file.name
 
         dataset.to_csv(temp_file_path, index=False)
         files.append(temp_file_path)
 
-for file_path, name in zip( files, ["X_train", "X_test","y_train","y_test"]):
+for file_path, name in zip(files, ["X_train", "X_test", "y_train", "y_test"]):
     api.upload_file(
         path_or_fileobj=file_path,
-        path_in_repo= "prepped/" + name + ".csv",  # just the filename
+        path_in_repo="prepped/" + name + ".csv",  # just the filename
         repo_id=data_repo,
         repo_type="dataset",
     )

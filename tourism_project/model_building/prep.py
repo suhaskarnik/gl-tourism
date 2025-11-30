@@ -11,18 +11,24 @@ from sklearn.model_selection import train_test_split
 # for converting text data in to numerical representation
 from sklearn.preprocessing import LabelEncoder
 # for hugging face space authentication to upload files
-from huggingface_hub import login, HfApi
+from huggingface_hub import login, HfApi, create_repo
+from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError
 
 api = HfApi(token=os.getenv("HF_TOKEN"))
 
 data_repo = "sam-vimes/tourism_data"
 DATASET_PATH = f"hf://datasets/{data_repo}/tourism.csv"
 
-df = pd.read_csv(DATASET_PATH)
+df = pd.read_csv(DATASET_PATH, index_col=0)
+
+# Cleaning the gender column 
+df.loc[df['Gender'] == 'Fe Male', 'Gender'] = 'Female'
+
+
 print("Dataset loaded successfully.")
 
 target = "ProdTaken"
-X = df.drop(columns=target)
+X = df.drop(columns=[target, "CustomerID"])
 
 y = df[target]
 

@@ -9,7 +9,6 @@ data_repo = "sam-vimes/tourism_data"
 repo_type = "dataset"
 data_dir = "tourism_project/data"
 
-# Step 1: Check if the space exists
 try:
     api.repo_info(repo_id=data_repo, repo_type=repo_type)
     print(f"Space '{data_repo}' already exists. Using it.")

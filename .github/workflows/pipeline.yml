@@ -8,20 +8,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Detect Changes
+        id: changes
+        uses: ./.github/actions/detect-changes
+        with:
+          filters: |
+            base_data_changed:
+              - 'tourism_project/data/tourism.csv'
+          
+
       - uses: ./.github/actions/common-setup
+        if: steps.changes.outputs.step_a == 'true'
+
 
       - name: Upload Dataset to HuggingFace Hub
         env: 
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: uv run tourism_project/model_building/data_register.py
 
-  data-prep:
-    needs: register-dataset
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/common-setup
-      - name: Run Data Preparation
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: uv run tourism_project/model_building/prep.py
+  # data-prep:
+  #   needs: register-dataset
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: ./.github/actions/common-setup
+  #     - name: Run Data Preparation
+  #       env:
+  #         HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  #       run: uv run tourism_project/model_building/prep.py
+  # 
+  # model-training:
+  #   needs: register-dataset
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: ./.github/actions/common-setup
+  #     - name: Train the ML Model
+  #       env:
+  #         HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  #       run: uv run tourism_project/model_building/prep.py

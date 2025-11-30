@@ -1,49 +1,51 @@
 name: MLOps tourism data
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - devel
   
 jobs:
   register-dataset:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Detect Changes
-        id: changes
-        uses: ./.github/actions/detect-changes
-        with:
-          filters: |
-            base_data_changed:
-              - 'tourism_project/data/tourism.csv'
-          
-
       - uses: ./.github/actions/common-setup
-        if: steps.changes.outputs.step_a == 'true'
-
-
       - name: Upload Dataset to HuggingFace Hub
         env: 
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: uv run tourism_project/model_building/data_register.py
 
-  # data-prep:
-  #   needs: register-dataset
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: ./.github/actions/common-setup
-  #     - name: Run Data Preparation
-  #       env:
-  #         HF_TOKEN: ${{ secrets.HF_TOKEN }}
-  #       run: uv run tourism_project/model_building/prep.py
-  # 
-  # model-training:
-  #   needs: register-dataset
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #     - uses: ./.github/actions/common-setup
-  #     - name: Train the ML Model
-  #       env:
-  #         HF_TOKEN: ${{ secrets.HF_TOKEN }}
-  #       run: uv run tourism_project/model_building/prep.py
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/common-setup
+      - name: Run Data Preparation
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: uv run tourism_project/model_building/prep.py
+
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/common-setup
+      - name: Train the ML Model
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: uv run tourism_project/model_building/prep.py
+  
+  deploy-hosting:
+    needs: model-training
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/common-setup
+      - name: Push the app the HuggingFace and Run it
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: uv run tourism_project/hosting/hosting.py

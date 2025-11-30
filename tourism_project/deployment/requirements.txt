@@ -1,4 +1,4 @@
-pandas==2.3.3.
+pandas==2.3.3
 huggingface_hub==1.1.2
 streamlit==1.51.0
 joblib==1.5.2

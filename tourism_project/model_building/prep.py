@@ -11,12 +11,10 @@ data_repo = "sam-vimes/tourism_data"
 DATASET_PATH = f"hf://datasets/{data_repo}/tourism.csv"
 
 df = pd.read_csv(DATASET_PATH, index_col=0)
+print("Dataset loaded successfully.")
 
 # Cleaning the gender column
 df.loc[df["Gender"] == "Fe Male", "Gender"] = "Female"
-
-
-print("Dataset loaded successfully.")
 
 target = "ProdTaken"
 X = df.drop(columns=[target, "CustomerID"])
@@ -44,17 +42,17 @@ labels = ["train", "test"]
 datasets = [X_train, X_test, y_train, y_test]
 files = []
 for dataset in datasets:
+    # write each dataset to a temporary file, which will later be uploaded to HF
     with tempfile.NamedTemporaryFile(
         mode="w+", delete=False, suffix=".csv"
     ) as temp_csv_file:
         temp_file_path = temp_csv_file.name
-
         dataset.to_csv(temp_file_path, index=False)
         files.append(temp_file_path)
 
 for file_path, name in zip(files, ["X_train", "X_test", "y_train", "y_test"]):
     api.upload_file(
-        path_or_fileobj=file_path,
+        path_or_fileobj=file_path,  # name of the temporary file from before
         path_in_repo="prepped/" + name + ".csv",  # just the filename
         repo_id=data_repo,
         repo_type="dataset",

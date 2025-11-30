@@ -1,3 +1,4 @@
+mport argparse
 import os
 import tempfile
 
@@ -15,9 +16,16 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 # for model training, tuning, and evaluation
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
-api = HfApi()
+# The same .py file will be used for local training, and for training in GitHub Actions.
+##  If the --local argument is passed to the .py, it will run in "local" mode, and log training data to localhost:5000
+parser = argparse.ArgumentParser()
+parser.add_argument("-l", "--local", action="store_true")
+args = parser.parse_args()
+local = args.local
+
+
 data_repo = "sam-vimes/tourism_data"
 model_repo = "sam-vimes/tourism_model"
 
@@ -26,7 +34,6 @@ def get_data(dataset_name):
     local_path = hf_hub_download(
         repo_id=data_repo, filename=f"prepped/{dataset_name}.csv", repo_type="dataset"
     )
-
     return pd.read_csv(local_path)
 
 
@@ -51,9 +58,15 @@ preprocessor = make_column_transformer(
             "Gender",
             "ProductPitched",
             "MaritalStatus",
-            "Designation",
         ],
-    )
+    ),
+    (
+        OrdinalEncoder(
+            categories=[["Executive", "VP", "AVP", "Senior Manager", "Manager"]],
+            # handle_unknown="use_encoded_value",
+        ),
+        ["Designation"],
+    ),
 )
 
 model = RandomForestClassifier(random_state=42, class_weight="balanced")
@@ -61,7 +74,10 @@ pipe = make_pipeline(preprocessor, model)
 
 # When training locally, an MLFlow UI can be spawned based on the below DB.
 #   That is NOT possible when we use GitHub Actions (GHA), because GHA does not have persistent storage
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
+if local:
+    mlflow.set_tracking_uri("http://localhost:5000")
+else:
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 mlflow.set_experiment("MLOps_Tourism")
 
@@ -72,11 +88,13 @@ param_grid = {
     "randomforestclassifier__min_samples_leaf": [1, 2, 3, 4],
 }
 
+mlflow.sklearn.autolog()
 
+metric = "recall"
 with mlflow.start_run():
     # Grid Search
 
-    grid_search = GridSearchCV(pipe, param_grid, cv=5, scoring="f1", n_jobs=-1)
+    grid_search = GridSearchCV(pipe, param_grid, cv=5, scoring=metric, n_jobs=-1)
     grid_search.fit(X_train, y_train)
 
     # Log parameter sets
@@ -87,7 +105,7 @@ with mlflow.start_run():
 
         with mlflow.start_run(nested=True):
             mlflow.log_params(param_set)
-            mlflow.log_metric("mean_f1", mean_score)
+            mlflow.log_metric(f"mean_{metric}", mean_score)
 
     # Best model
     mlflow.log_params(grid_search.best_params_)
@@ -109,33 +127,35 @@ with mlflow.start_run():
         }
     )
 
-    with tempfile.NamedTemporaryFile(
-        mode="w+", delete=False, suffix=".joblib"
-    ) as temp_joblib_file:
-        temp_file_path = temp_joblib_file.name
+    if not local:  # not local = we are running in GitHub Actions, so push the model to Hugging Face
+        api = HfApi()
+        with tempfile.NamedTemporaryFile(
+            mode="w+", delete=False, suffix=".joblib"
+        ) as temp_joblib_file:
+            temp_file_path = temp_joblib_file.name
 
-        # Save the model locally
-        joblib.dump(best_model, temp_file_path)
+            # Save the model locally
+            joblib.dump(best_model, temp_file_path)
 
-        # Log the model artifact
-        mlflow.log_artifact(temp_file_path, artifact_path="model")
-        print(f"Model saved as artifact at: {temp_file_path}")
+            # Log the model artifact
+            mlflow.log_artifact(temp_file_path, artifact_path="model")
+            print(f"Model saved as artifact at: {temp_file_path}")
 
-        # Upload to Hugging Face
-        repo_type = "model"
+            # Upload to Hugging Face
+            repo_type = "model"
 
-        api = HfApi(token=os.getenv("HF_TOKEN"))
-        try:
-            api.repo_info(repo_id=model_repo, repo_type=repo_type)
-            print(f"Space '{model_repo}' already exists. Using it.")
-        except (HfHubHTTPError, httpx.HTTPStatusError):
-            print(f"Space '{model_repo}' not found. Creating new space...")
-            create_repo(repo_id=model_repo, repo_type=repo_type, private=False)
-            print(f"Space '{model_repo}' created.")
+            api = HfApi(token=os.getenv("HF_TOKEN"))
+            try:
+                api.repo_info(repo_id=model_repo, repo_type=repo_type)
+                print(f"Space '{model_repo}' already exists. Using it.")
+            except (HfHubHTTPError, httpx.HTTPStatusError):
+                print(f"Space '{model_repo}' not found. Creating new space...")
+                create_repo(repo_id=model_repo, repo_type=repo_type, private=False)
+                print(f"Space '{model_repo}' created.")
 
-        api.upload_file(
-            path_or_fileobj=temp_file_path,
-            path_in_repo="best_tourism_model_v1.joblib",
-            repo_id=model_repo,
-            repo_type=repo_type,
-        )
+            api.upload_file(
+                path_or_fileobj=temp_file_path,
+                path_in_repo="best_tourism_model_v1.joblib",
+                repo_id=model_repo,
+                repo_type=repo_type,
+            )

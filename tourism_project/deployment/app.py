@@ -86,4 +86,3 @@ input_data = pd.DataFrame(
 if st.button("Predict Purchase of Wellness Package"):
     prediction = model.predict(input_data)[0]
     st.subheader("Prediction Result:")
-    st.success(f"Prediction: **{prediction}**")

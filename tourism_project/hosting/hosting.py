@@ -1,5 +1,7 @@
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, create_repo
 import os
+from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError 
+import httpx
 
 hosting_repo = "sam-vimes/tourism_prediction"
 
@@ -13,7 +15,7 @@ try:
     print(f"Space '{hosting_repo}' already exists. Using it.")
 except (HfHubHTTPError, httpx.HTTPStatusError) as e:
     print(f"Space '{hosting_repo}' not found. Creating new space...")
-    create_repo(repo_id=hosting_repo, repo_type=repo_type, private=False)
+    create_repo(repo_id=hosting_repo, repo_type=repo_type, private=False, space_sdk="docker")
     print(f"Space '{hosting_repo}' created.")
 
 api.upload_folder(
@@ -21,4 +23,5 @@ api.upload_folder(
     repo_id=hosting_repo,          # the target repo
     repo_type=repo_type,                      # dataset, model, or space
     path_in_repo="",                          # optional: subfolder path inside the repo
+
 )

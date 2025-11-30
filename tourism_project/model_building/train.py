@@ -9,14 +9,14 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import f1_score, recall_score, precision_score
 from sklearn.ensemble import RandomForestClassifier
-from huggingface_hub import login, HfApi
+from huggingface_hub import login, HfApi, hf_hub_download, create_repo
+from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError 
 
 # for model serialization
 import joblib
 import os
 # for hugging face space authentication to upload files
-from huggingface_hub import hf_hub_download, create_repo
-from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError 
+
 import mlflow
 import httpx
 

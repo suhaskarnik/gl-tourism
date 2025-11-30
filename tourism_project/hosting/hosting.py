@@ -19,7 +19,7 @@ except (HfHubHTTPError, httpx.HTTPStatusError) as e:
     print(f"Space '{hosting_repo}' created.")
 
 api.upload_folder(
-    folder_path="tourism_project/hosting",     # the local folder containing your files
+    folder_path="tourism_project/deployment",     # the local folder containing your files
     repo_id=hosting_repo,          # the target repo
     repo_type=repo_type,                      # dataset, model, or space
     path_in_repo="",                          # optional: subfolder path inside the repo

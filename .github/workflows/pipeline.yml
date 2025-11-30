@@ -8,19 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Detect Changes
-        id: changes
-        uses: ./.github/actions/detect-changes
-        with:
-          filters: |
-            base_data_changed:
-              - 'tourism_project/data/tourism.csv'
-          
-
       - uses: ./.github/actions/common-setup
-        if: steps.changes.outputs.step_a == 'true'
-
-
       - name: Upload Dataset to HuggingFace Hub
         env: 
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

@@ -11,10 +11,11 @@ from huggingface_hub import HfApi, create_repo, hf_hub_download
 from huggingface_hub.utils import HfHubHTTPError
 from sklearn.compose import make_column_transformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score, roc_auc_score
+from scipy.stats import uniform, randint, loguniform
 
 # for model training, tuning, and evaluation
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
@@ -67,6 +68,7 @@ preprocessor = make_column_transformer(
         ),
         ["Designation"],
     ),
+    remainder="passthrough"
 )
 
 model = RandomForestClassifier(random_state=42, class_weight="balanced")
@@ -75,30 +77,60 @@ pipe = make_pipeline(preprocessor, model)
 # When training locally, an MLFlow UI can be spawned based on the below DB.
 #   That is NOT possible when we use GitHub Actions (GHA), because GHA does not have persistent storage
 if local:
+    # note: this cannot be used in GHA because it expects a process to listen on port 5000, and there is no such listener in the GHA environment
     mlflow.set_tracking_uri("http://localhost:5000")
 else:
+    # note: this SQLite DB is lost the moment the GHA runner completes. In a Production workflow, this should be an external location like an S3 Bucket, RDS etc
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
 
 mlflow.set_experiment("MLOps_Tourism")
 
-param_grid = {
-    "randomforestclassifier__max_depth": [6, 7, 8, None],
-    "randomforestclassifier__max_leaf_nodes": [80, 90, 100, None],
-    "randomforestclassifier__min_samples_split": [2, 8, 16],
-    "randomforestclassifier__min_samples_leaf": [1, 2, 3, 4],
+grid = {
+    # number of trees
+    "randomforestclassifier__n_estimators": [200, 400, 600, 800],
+
+    # limit depth to prevent overfitting
+    "randomforestclassifier__max_depth": [None, 5, 8, 12, 15],
+
+    # minimum samples to split a node
+    "randomforestclassifier__min_samples_split": [2, 5, 10, 20, 40, 80],
+
+    # minimum samples in a leaf
+    "randomforestclassifier__min_samples_leaf": [1, 2, 4, 8, 12],
+
+    # stronger regularization than min_samples_leaf
+    "randomforestclassifier__min_weight_fraction_leaf": [0.0, 0.005, 0.01, 0.02],
+
+    # shrink feature set per split to reduce correlation between trees
+    "randomforestclassifier__max_features": ["sqrt", "log2", 0.25, 0.5, 0.75],
+
+    # extra pruning
+    "randomforestclassifier__min_impurity_decrease": [0.0, 0.0001, 0.001, 0.01],
+
+    # for imbalanced data (important!)
+    "randomforestclassifier__class_weight": ["balanced", "balanced_subsample"]
 }
+
 
 mlflow.sklearn.autolog()
 
 metric = "recall"
 with mlflow.start_run():
-    # Grid Search
+    randomized_cv = RandomizedSearchCV(
+        estimator=pipe,
+        param_distributions=grid,
+        n_iter=200,
+        scoring=metric,
+        cv=5,
+        random_state=42,
+        n_jobs=-1,
+    )
 
-    grid_search = GridSearchCV(pipe, param_grid, cv=5, scoring=metric, n_jobs=-1)
-    grid_search.fit(X_train, y_train)
 
     # Log parameter sets
-    results = grid_search.cv_results_
+    randomized_cv.fit(X_train, y_train) 
+    results = randomized_cv.cv_results_
     for i in range(len(results["params"])):
         param_set = results["params"][i]
         mean_score = results["mean_test_score"][i]
@@ -108,8 +140,8 @@ with mlflow.start_run():
             mlflow.log_metric(f"mean_{metric}", mean_score)
 
     # Best model
-    mlflow.log_params(grid_search.best_params_)
-    best_model = grid_search.best_estimator_
+    mlflow.log_params(randomized_cv.best_params_)
+    best_model = randomized_cv.best_estimator_
 
     # Predictions
     y_pred_train = best_model.predict(X_train)
@@ -121,9 +153,14 @@ with mlflow.start_run():
             "train_F1": f1_score(y_train, y_pred_train),
             "train_Recall": recall_score(y_train, y_pred_train),
             "train_Precision": precision_score(y_train, y_pred_train),
+            "train_PRC" : average_precision_score(y_train, y_pred_train),
+            "train_ROC" : roc_auc_score(y_train, y_pred_train),
+
             "test_F1": f1_score(y_test, y_pred_test),
             "test_Recall": recall_score(y_test, y_pred_test),
             "test_Precision": precision_score(y_test, y_pred_test),
+            "test_PRC" : average_precision_score(y_test, y_pred_test),
+            "test_ROC" : roc_auc_score(y_test, y_pred_test),
         }
     )
 

@@ -10,7 +10,7 @@ hosting_repo = "sam-vimes/tourism_prediction"
 repo_type = "space"
 
 api = HfApi(token=os.getenv("HF_TOKEN"))
-# Step 1: Check if the space exists
+# Check if the space exists, if not create it
 try:
     api.repo_info(repo_id=hosting_repo, repo_type=repo_type)
     print(f"Space '{hosting_repo}' already exists. Using it.")
@@ -21,6 +21,7 @@ except (HfHubHTTPError, httpx.HTTPStatusError):
     )
     print(f"Space '{hosting_repo}' created.")
 
+# upload the deployment folder to the HF space
 api.upload_folder(
     folder_path="tourism_project/deployment",  # the local folder containing your files
     repo_id=hosting_repo,  # the target repo

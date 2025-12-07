@@ -11,8 +11,13 @@ from huggingface_hub import HfApi, create_repo, hf_hub_download
 from huggingface_hub.utils import HfHubHTTPError
 from sklearn.compose import make_column_transformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score, roc_auc_score
-from scipy.stats import uniform, randint, loguniform
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 # for model training, tuning, and evaluation
 from sklearn.model_selection import RandomizedSearchCV
@@ -68,7 +73,7 @@ preprocessor = make_column_transformer(
         ),
         ["Designation"],
     ),
-    remainder="passthrough"
+    remainder="passthrough",
 )
 
 model = RandomForestClassifier(random_state=42, class_weight="balanced")
@@ -80,7 +85,8 @@ if local:
     # note: this cannot be used in GHA because it expects a process to listen on port 5000, and there is no such listener in the GHA environment
     mlflow.set_tracking_uri("http://localhost:5000")
 else:
-    # note: this SQLite DB is lost the moment the GHA runner completes. In a Production workflow, this should be an external location like an S3 Bucket, RDS etc
+    # note: this SQLite DB is lost the moment the GHA runner completes.
+    # In a Production workflow, this should be an external location like an S3 Bucket, RDS etc
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 
@@ -89,27 +95,20 @@ mlflow.set_experiment("MLOps_Tourism")
 grid = {
     # number of trees
     "randomforestclassifier__n_estimators": [200, 400, 600, 800],
-
     # limit depth to prevent overfitting
     "randomforestclassifier__max_depth": [None, 5, 8, 12, 15],
-
     # minimum samples to split a node
     "randomforestclassifier__min_samples_split": [2, 5, 10, 20, 40, 80],
-
     # minimum samples in a leaf
     "randomforestclassifier__min_samples_leaf": [1, 2, 4, 8, 12],
-
     # stronger regularization than min_samples_leaf
     "randomforestclassifier__min_weight_fraction_leaf": [0.0, 0.005, 0.01, 0.02],
-
     # shrink feature set per split to reduce correlation between trees
     "randomforestclassifier__max_features": ["sqrt", "log2", 0.25, 0.5, 0.75],
-
     # extra pruning
     "randomforestclassifier__min_impurity_decrease": [0.0, 0.0001, 0.001, 0.01],
-
     # for imbalanced data (important!)
-    "randomforestclassifier__class_weight": ["balanced", "balanced_subsample"]
+    "randomforestclassifier__class_weight": ["balanced", "balanced_subsample"],
 }
 
 
@@ -127,9 +126,8 @@ with mlflow.start_run():
         n_jobs=-1,
     )
 
-
     # Log parameter sets
-    randomized_cv.fit(X_train, y_train) 
+    randomized_cv.fit(X_train, y_train)
     results = randomized_cv.cv_results_
     for i in range(len(results["params"])):
         param_set = results["params"][i]
@@ -153,25 +151,27 @@ with mlflow.start_run():
             "train_F1": f1_score(y_train, y_pred_train),
             "train_Recall": recall_score(y_train, y_pred_train),
             "train_Precision": precision_score(y_train, y_pred_train),
-            "train_PRC" : average_precision_score(y_train, y_pred_train),
-            "train_ROC" : roc_auc_score(y_train, y_pred_train),
-
+            "train_PRC": average_precision_score(y_train, y_pred_train),
+            "train_ROC": roc_auc_score(y_train, y_pred_train),
             "test_F1": f1_score(y_test, y_pred_test),
             "test_Recall": recall_score(y_test, y_pred_test),
             "test_Precision": precision_score(y_test, y_pred_test),
-            "test_PRC" : average_precision_score(y_test, y_pred_test),
-            "test_ROC" : roc_auc_score(y_test, y_pred_test),
+            "test_PRC": average_precision_score(y_test, y_pred_test),
+            "test_ROC": roc_auc_score(y_test, y_pred_test),
         }
     )
 
     if not local:  # not local = we are running in GitHub Actions, so push the model to Hugging Face
         api = HfApi()
+
+        # create a temporary file
         with tempfile.NamedTemporaryFile(
             mode="w+", delete=False, suffix=".joblib"
         ) as temp_joblib_file:
+            # ... and get its path
             temp_file_path = temp_joblib_file.name
 
-            # Save the model locally
+            # Save the model locally at that temp file path
             joblib.dump(best_model, temp_file_path)
 
             # Log the model artifact
@@ -191,8 +191,8 @@ with mlflow.start_run():
                 print(f"Space '{model_repo}' created.")
 
             api.upload_file(
-                path_or_fileobj=temp_file_path,
-                path_in_repo="best_tourism_model_v1.joblib",
+                path_or_fileobj=temp_file_path,  # temporary file from earlier
+                path_in_repo="best_tourism_model_v1.joblib",  # the name in the model repo
                 repo_id=model_repo,
                 repo_type=repo_type,
             )

@@ -84,6 +84,7 @@ input_data = pd.DataFrame(
 
 # Predict button
 if st.button("Predict Purchase of Wellness Package"):
-    prediction = "is" if model.predict(input_data)[0]==1 else "is not"
-    st.subheader(f"Prediction Result: Customer {prediction} likely to purchase the wellness package")
-
+    prediction = "is" if model.predict(input_data)[0] == 1 else "is not"
+    st.subheader(
+        f"Prediction Result: Customer {prediction} likely to purchase the wellness package"
+    )

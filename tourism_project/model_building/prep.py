@@ -17,16 +17,14 @@ print("Dataset loaded successfully.")
 df.loc[df["Gender"] == "Fe Male", "Gender"] = "Female"
 
 target = "ProdTaken"
-X = df.drop(columns=[target, "CustomerID"])
+X = df.drop(
+    columns=[target, "CustomerID"]
+)  # The Customer ID is a unique identifier, we will remove it
 
 y = df[target]
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.25,
-    random_state=42,
-    stratify=y
+    X, y, test_size=0.25, random_state=42, stratify=y
 )
 
 print(
